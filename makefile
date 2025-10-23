@@ -17,6 +17,3 @@ CFLAGS = $(IDIR) -m64 -mwindows -O2 -s -DNDEBUG -ffunction-sections -fdata-secti
 $(TARGET): $(SRCS)
 	windres --target=pe-x86-64 icons.rc icons.o
 	$(CC) $(SRCS) -o $(TARGET) $(CFLAGS) $(LDIR) $(LIBS) icons.o
-
-clean:
-	del $(TARGET)
