@@ -7,63 +7,7 @@
 #define UNICODE
 #define _UNICODE
 
-// int FindRecursive(const WCHAR* path)
-// {
-//     WIN32_FIND_DATAW ffd;
-//     LARGE_INTEGER filesize;
-//     WCHAR szDir[MAX_PATH];
-//     size_t length_of_arg;
-//     HANDLE hFind = INVALID_HANDLE_VALUE;
-//     WCHAR nextPath[MAX_PATH];
-
-//     StringCchLengthW(path, MAX_PATH, &length_of_arg);
-
-//     if (length_of_arg > (MAX_PATH - 3))
-//     {
-//         return (-1);
-//     }
-
-
-//     StringCchCopyW(szDir, MAX_PATH, path);
-//     StringCchCatW(szDir, MAX_PATH, L"\\*");
-
-//     hFind = FindFirstFileW(szDir, &ffd);
-
-//     if (INVALID_HANDLE_VALUE == hFind) 
-//     {
-//         return 0;
-//     } 
-
-//     do
-//     {
-//         if (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-//         {
-//             //если директория
-//             if (wcscmp(ffd.cFileName, L".") != 0 && wcscmp(ffd.cFileName, L"..") != 0) //
-//             {
-//             StringCchPrintfW(nextPath, MAX_PATH, L"%s\\%s", path, ffd.cFileName);
-//             char *convert =  ConvertWcharToUtf8(nextPath);
-//             free(convert);
-//             //сама рекурсия
-//             FindRecursive(nextPath);
-//             }
-//         }
-//         else
-//         { //если атрибуты != директория (файл)
-//             filesize.LowPart = ffd.nFileSizeLow;
-//             filesize.HighPart = ffd.nFileSizeHigh;
-//             StringCchPrintfW(nextPath, MAX_PATH, L"%s\\%s", path, ffd.cFileName);
-            
-//             // тут логика самого антивиря
-//         }
-//     }
-//     while (FindNextFileW(hFind, &ffd) != 0);
-
-//     FindClose(hFind);
-//     return 0;
-// }
-
-char* ConvertWcharToUtf8(WCHAR* wideString) //конвертация в utf8 из utf-16
+char* ConvertWcharToUtf8(WCHAR* wideString) // Converting from UTF-16 to UTF-8
 {
     if (wideString == NULL) {
         return NULL;
@@ -108,7 +52,7 @@ char* ConvertWcharToUtf8(WCHAR* wideString) //конвертация в utf8 и�
     return utf8String;
 }
 
-WCHAR* ConvertUtf8ToWchar(char* utf8String) 
+WCHAR* ConvertUtf8ToWchar(char* utf8String) // Converting from UTF-8 to UTF-16 
 {
     if (utf8String == NULL) {
         return NULL;
