@@ -64,12 +64,11 @@ BOOL parse_imports_x64(PIMAGE_NT_HEADERS64 p_nt_header, LPVOID lp_base_address, 
 
     PIMAGE_IMPORT_DESCRIPTOR p_import_descriptor = (PIMAGE_IMPORT_DESCRIPTOR)((BYTE*)lp_base_address + import_offset);
 
-    // выделяем память под массив
     result->dll_capacity = 8; 
     result->dlls = (DllInfo*)malloc(result->dll_capacity * sizeof(DllInfo));
     if (!result->dlls) { return FALSE; }
 
-    // цикл под длл
+    // loop under dll
     while (p_import_descriptor->Name != 0)
     {
         if (result->dll_count >= result->dll_capacity) {
@@ -87,7 +86,7 @@ BOOL parse_imports_x64(PIMAGE_NT_HEADERS64 p_nt_header, LPVOID lp_base_address, 
             strncpy(current_dll->name, (char*)((BYTE*)lp_base_address + dll_name_offset), sizeof(current_dll->name) - 1);
         }
 
-        // цикл для функций 
+        // loop for functions 
         DWORD thunk_rva = p_import_descriptor->OriginalFirstThunk ? p_import_descriptor->OriginalFirstThunk : p_import_descriptor->FirstThunk;
         DWORD thunk_offset = RvaToOffset((PIMAGE_NT_HEADERS)p_nt_header, thunk_rva, file_size);
         

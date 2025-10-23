@@ -121,34 +121,6 @@ BOOL find_high_entropy_blocks(LPVOID data_sections, DWORD size_data_sections)
     return FALSE;
 }
 
-// BOOL hash_search(LPVOID data_sections, DWORD size_data_sections, DWORD section_rva, AnalysisResult* result)
-// {
-//     const DWORD STEP_SIZE = sizeof(DWORD);
-//     DWORD STEP_SIZE = 256;
-
-//     if (size_data_sections < STEP_SIZE)
-//         return FALSE;
-    
-//     for (DWORD offset = 0; offset <= size_data_sections - STEP_SIZE; offset += STEP_SIZE)
-//     {
-//         LPVOID p_window_start = data_sections + offset;
-//         LPVOID p_current_pos = (BYTE*)data_sections + offset;
-//         DWORD candidate_hash = *(DWORD*)p_current_pos;
-//         if (candidate_hash == 0 || candidate_hash == 0xFFFFFFFF) {
-//             continue;
-//         }
-
-//         FLOAT entropy = calculate_entropy(p_window_start, WINDOW_SIZE);
-//         if (entropy > 7.4)
-//         {
-//             return TRUE;
-//         }
-        
-//     }
-
-//     return FALSE;
-// }
-
 VOID scan_section_for_strings(LPVOID section_data, DWORD section_size, AnalysisResult* result)
 {
     size_t num_suspicious = sizeof(suspicious_strings) / sizeof(suspicious_strings[0]);
@@ -268,11 +240,11 @@ VOID evaluate_threats(PIMAGE_NT_HEADERS p_nt_header, LPVOID lp_base_address, Ana
     result->total_score = 0;
     result->finding_count = 0;
 
-    //анализ секций
+    //  section analysis
     for (int i = 0; i < result->section_count; i++) {
         SectionInfo* s = &result->sections[i];
         
-        // правило энтропии
+        // entropy rule
         if (s->entropy > ENTROPY_CRITICAL) {
             AddFinding(result, 40, "[CRITICAL] High entropy (%.2f) in section '%s'", s->entropy, s->name);
             s->is_suspicious = TRUE;
@@ -285,7 +257,7 @@ VOID evaluate_threats(PIMAGE_NT_HEADERS p_nt_header, LPVOID lp_base_address, Ana
             s->is_suspicious = TRUE;
         }
         
-        // правило флагов
+        // flag rule
         if (strstr(s->flags, "W") && strstr(s->flags, "E")) {
             AddFinding(result, 40, "[CRITICAL] Dangerous permissions (W+E) on section '%s'", s->name);
             s->is_suspicious = TRUE;
@@ -297,7 +269,7 @@ VOID evaluate_threats(PIMAGE_NT_HEADERS p_nt_header, LPVOID lp_base_address, Ana
             s->is_suspicious = TRUE;
         }
 
-        // правило блочной энтропии
+        // block entropy rule
         if (s->entropy < 7.0f && s->raw_size > 1024) {
             BYTE* data = (BYTE*)lp_base_address + s->raw_pointer;
             if (find_high_entropy_blocks(data, s->raw_size)) {
@@ -307,7 +279,7 @@ VOID evaluate_threats(PIMAGE_NT_HEADERS p_nt_header, LPVOID lp_base_address, Ana
         }
     }
 
-    //анализ точки входа
+    //  entrypoint analysis
     DWORD entryPointRVA = result->entry_point_rva;
     BOOL entry_point_found = FALSE;
     SectionInfo* entry_point_section = NULL;
@@ -330,7 +302,7 @@ VOID evaluate_threats(PIMAGE_NT_HEADERS p_nt_header, LPVOID lp_base_address, Ana
             AddFinding(result, 20, "[MEDIUM] Entry point is not in .text section (it's in '%s')", entry_point_section->name);
         }
     }
-    //анализ импортов 
+    // import analysis
     for (int i = 0; i < result->dll_count; i++) {
         for (int j = 0; j < result->dlls[i].function_count; j++) {
 
@@ -360,7 +332,7 @@ VOID evaluate_threats(PIMAGE_NT_HEADERS p_nt_header, LPVOID lp_base_address, Ana
         AddFinding(result, 20, "Anomalously low total function import count: %d (likely packed)", result->dlls->function_count);
     }
 
-    // анализ строк
+    // string parsing
     for (int i = 0; i < result->section_count; i++) {
         if (strncmp(result->sections[i].name, ".rdata", 6) == 0 || strncmp(result->sections[i].name, ".data", 5) == 0) {
              BYTE* data = (BYTE*)lp_base_address + result->sections[i].raw_pointer;
@@ -369,21 +341,21 @@ VOID evaluate_threats(PIMAGE_NT_HEADERS p_nt_header, LPVOID lp_base_address, Ana
     }
 
 
-    // финальный вердикт 
+    // final verdict
     if (result->total_score > 250) {
-        sprintf(result->verdict, "Критический риск");
+        sprintf(result->verdict, "Critical risk");
     }
     else if (result->total_score > 140) {
-        sprintf(result->verdict, "Высокий риск");
+        sprintf(result->verdict, "High risk");
     }
     else if (result->total_score > 80) {
-        sprintf(result->verdict, "Средний риск");
+        sprintf(result->verdict, "Medium risk");
     }
     else if (result->total_score > 50) {
-        sprintf(result->verdict, "Низкий риск");
+        sprintf(result->verdict, "Low risk");
     }
     else {
-        sprintf(result->verdict, "Чистый");
+        sprintf(result->verdict, "Clen");
     }
     
     
@@ -391,20 +363,20 @@ VOID evaluate_threats(PIMAGE_NT_HEADERS p_nt_header, LPVOID lp_base_address, Ana
     if (signatureStatus == SIGNATURE_STATE_VALID_AND_TRUSTED)
     {
         result->total_score = 0;
-        strcpy(result->verdict, "Доверенный");
+        strcpy(result->verdict, "Trusted");
         result->finding_count = 0; 
         
         HeuristicFinding* finding = &result->findings[result->finding_count++];
-        sprintf(finding->description, "[TRUSTED] Файл имеет валидную цифровую подпись.");
+        sprintf(finding->description, "[TRUSTED] The file has a valid digital signature.");
         finding->score = 0;
     }
     else if (signatureStatus == SIGNATURE_STATE_INVALID)
     {
-        AddFinding(result, 100, "[CRITICAL] Цифровая подпись повреждена.");
+        AddFinding(result, 100, "[CRITICAL] The digital signature is corrupted.");
     }
     else if (signatureStatus == SIGNATURE_STATE_NOT_TRUSTED)
     {
-        AddFinding(result, 40, "[HIGH] Цифровая подпись была сделана самостоятельно.");
+        AddFinding(result, 40, "[HIGH] The digital signature was made independently.");
     }
 }
 
@@ -439,7 +411,7 @@ BOOL analyze_pe_file(WCHAR* file_path, AnalysisResult* result)
     memset(result, 0, sizeof(AnalysisResult));
 
     HANDLE h_file = INVALID_HANDLE_VALUE; 
-    h_file = CreateFileW(file_path, GENERIC_READ, 0, NULL, 3, FILE_ATTRIBUTE_NORMAL, NULL); //читаем файл
+    h_file = CreateFileW(file_path, GENERIC_READ, 0, NULL, 3, FILE_ATTRIBUTE_NORMAL, NULL);
     if (h_file == INVALID_HANDLE_VALUE)
     {
         return FALSE;
@@ -462,7 +434,7 @@ BOOL analyze_pe_file(WCHAR* file_path, AnalysisResult* result)
     // }
 
     if (file_size.QuadPart == 0) {
-        sprintf(result->verdict, "Файл пуст");
+        sprintf(result->verdict, "File is empty");
         CloseHandle(h_file);
         return FALSE;
     }
@@ -477,7 +449,7 @@ BOOL analyze_pe_file(WCHAR* file_path, AnalysisResult* result)
         return FALSE;
     }
 
-    LPVOID lp_base_address = MapViewOfFile(h_map_object, FILE_MAP_READ, 0, 0, 0); //получаем через мапинг адрес вхождения
+    LPVOID lp_base_address = MapViewOfFile(h_map_object, FILE_MAP_READ, 0, 0, 0); //we get the entry address through mapping
     if(lp_base_address == NULL)
     {
         CloseHandle(h_map_object);
@@ -485,7 +457,7 @@ BOOL analyze_pe_file(WCHAR* file_path, AnalysisResult* result)
         return FALSE;
     }
     
-    PIMAGE_DOS_HEADER p_dos_header = (PIMAGE_DOS_HEADER)lp_base_address; // получаем DOS хэдр 
+    PIMAGE_DOS_HEADER p_dos_header = (PIMAGE_DOS_HEADER)lp_base_address; // we get a DOS header
 
     if (p_dos_header->e_magic != IMAGE_DOS_SIGNATURE)
     {
@@ -497,11 +469,11 @@ BOOL analyze_pe_file(WCHAR* file_path, AnalysisResult* result)
 
     if (p_dos_header->e_lfanew <= 0 || p_dos_header->e_lfanew + sizeof(IMAGE_NT_HEADERS) > file_size.QuadPart)
     {
-        sprintf(result->verdict, "Неверный PE-заголовок");
+        sprintf(result->verdict, "Invalid PE header");
         return FALSE;
     }
 
-    PIMAGE_NT_HEADERS p_nt_header = (PIMAGE_NT_HEADERS)((BYTE*)lp_base_address + p_dos_header->e_lfanew); // сдвиг до PIMAGE_NT_HEADERS
+    PIMAGE_NT_HEADERS p_nt_header = (PIMAGE_NT_HEADERS)((BYTE*)lp_base_address + p_dos_header->e_lfanew); // shift to PIMAGE_NT_HEADERS
     if (p_nt_header->Signature != IMAGE_NT_SIGNATURE)
     {
         UnmapViewOfFile(lp_base_address);
@@ -515,9 +487,9 @@ BOOL analyze_pe_file(WCHAR* file_path, AnalysisResult* result)
 
     PIMAGE_FILE_HEADER p_file_header = &(p_nt_header->FileHeader);
 
-    //API rule (функции). Список функций можно посмотреть в pe_analyzer.h
+    //API rules (functions). The list of functions can be found in pe_analyzer.h
 
-    size_t num_dangerous = sizeof(dangerous_api_rules) / sizeof(dangerous_api_rules[0]); //для счетчика
+    size_t num_dangerous = sizeof(dangerous_api_rules) / sizeof(dangerous_api_rules[0]); //for counter  
 
 
     if (p_file_header->Machine == IMAGE_FILE_MACHINE_I386)
@@ -553,19 +525,3 @@ BOOL analyze_pe_file(WCHAR* file_path, AnalysisResult* result)
     
     return TRUE;
 }
-
-// int main(void)
-// {
-//     setlocale(LC_ALL, "Russian");
-//     AnalysisResult PE = {0};
-//     BOOL result = analyze_pe_file(L"C:\\Windows\\System32\\cmd.exe", &PE);
-    
-//     for (size_t i = 0; i < PE.finding_count; i++)
-//     {
-//         printf("Findings: %s \n\n", PE.findings[i]);
-//     }
-    
-
-//     printf("Score: %d \n\n", PE.total_score);
-//     return 0;
-// }
