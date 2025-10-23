@@ -60,7 +60,9 @@ Imports: Tree view of all imported DLLs and functions (with risky ones marked).
 - **MSYS2** with `mingw-w64-x86_64-toolchain`  
 - **IUP** and **CD** libraries
 
-### Build Steps
 
-# Build the executable
+# Build Steps
+## Build the executable
+```bash
 make
+```
