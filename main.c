@@ -6,13 +6,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "include/scanner.h"
+#include "include/addons.h"
 #include "core/include/pe_analyzer.h"
 #include "include/resource.h"
 #include <iup.h>
 #include <iupim.h>
 #include <iupcontrols.h>
-#include <shlwapi.h>
 
 // global handles
 static Ihandle* g_title_label = NULL;
@@ -53,62 +52,6 @@ static void destroy_all_children(Ihandle* box)
     }
 }
 
-// enable integration
-int enable_integration_for_type(const char* fileType, const char* exePath) {
-    char command[MAX_PATH + 5];
-    char iconPath[MAX_PATH + 3];
-    sprintf(command, "\"%s\" \"%%1\"", exePath);
-    sprintf(iconPath, "%s,0", exePath);
-
-    HKEY hKey;
-    char fullKeyPath[MAX_PATH];
-    sprintf(fullKeyPath, "%s\\shell\\%s", fileType, REG_KEY_NAME);
-
-    if (RegCreateKeyExA(HKEY_CLASSES_ROOT, fullKeyPath, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hKey, NULL) != ERROR_SUCCESS) {
-        return 0;
-    }
-
-    const char* menuText = "Analyze with PE-XRay";
-    RegSetValueExA(hKey, NULL, 0, REG_SZ, (const BYTE*)menuText, strlen(menuText) + 1);
-    RegSetValueExA(hKey, "Icon", 0, REG_SZ, (const BYTE*)iconPath, strlen(iconPath) + 1);
-
-    HKEY hCmdKey;
-    if (RegCreateKeyExA(hKey, "command", 0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hCmdKey, NULL) != ERROR_SUCCESS) {
-        RegCloseKey(hKey);
-        return 0;
-    }
-
-    RegSetValueExA(hCmdKey, NULL, 0, REG_SZ, (const BYTE*)command, strlen(command) + 1);
-
-    RegCloseKey(hCmdKey);
-    RegCloseKey(hKey);
-
-    return 1;
-}
-
-// disable integration
-int disable_integration_for_type(const char* fileType) {
-    char fullKeyPath[MAX_PATH];
-    sprintf(fullKeyPath, "%s\\shell\\%s", fileType, REG_KEY_NAME);
-    return (SHDeleteKeyA(HKEY_CLASSES_ROOT, fullKeyPath) == ERROR_SUCCESS);
-}
-//checking if integration is enabled.
-int is_integration_enabled_for_type(const char* fileType) {
-    HKEY hKey;
-    char fullKeyPath[MAX_PATH];
-    sprintf(fullKeyPath, "%s\\shell\\%s", fileType, REG_KEY_NAME);
-
-    if (RegOpenKeyExA(HKEY_CLASSES_ROOT, fullKeyPath, 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
-        RegCloseKey(hKey);
-        return 1;
-    }
-    return 0;
-}
-
-int is_integration_enabled_all() {
-    return is_integration_enabled_for_type("exefile") && is_integration_enabled_for_type("dllfile");
-}
-
 // uploading images
 static Ihandle* LoadImageFromRes(HINSTANCE hInst, int resId)
 {
@@ -126,24 +69,6 @@ static Ihandle* LoadImageFromRes(HINSTANCE hInst, int resId)
         MessageBoxA(NULL, msg, "RES", MB_ICONERROR);
     }
     return NULL;
-}
-
-// creating a key from a registry
-int enable_integration_all() {
-    char exePath[MAX_PATH];
-    if (GetModuleFileNameA(NULL, exePath, MAX_PATH) == 0) {
-        return 0;
-    }
-    int success_exe = enable_integration_for_type("exefile", exePath);
-    int success_dll = enable_integration_for_type("dllfile", exePath);
-    return success_exe && success_dll;
-}
-
-// deleting a key from the registry
-int disable_integration_all() {
-    int success_exe = disable_integration_for_type("exefile");
-    int success_dll = disable_integration_for_type("dllfile");
-    return success_exe && success_dll;
 }
 
 // download to a temp folder
@@ -368,7 +293,7 @@ void update_gui_with_results(const AnalysisResult* result)
         }
         // cleaning the import tree
         if (imports_tree) {
-            IupSetAttribute(imports_tree, "DELNODE", "CHILDREN");
+            IupSetAttributeId(imports_tree, "DELNODE", 0, "CHILDREN");
         }
 
         if(verdict_label) IupRefresh(IupGetDialog(verdict_label));
@@ -429,11 +354,15 @@ void update_gui_with_results(const AnalysisResult* result)
                     IupSetAttribute(row_cells[j], "FGCOLOR", TEXT_COLOR);
                 }
 
-                if (result->sections[i].is_suspicious) {
-                    IupSetAttribute(row_hbox, "BGCOLOR", SUSPICIOUS_BG_COLOR);
+                Ihandle* row_bg = IupBackgroundBox(row_hbox);
+                IupSetAttribute(row_bg, "EXPAND", "HORIZONTAL");
+                IupSetAttribute(row_bg, "BGCOLOR", CONTENT_BG_COLOR);
+                if (result->sections[i].is_suspicious) 
+                {
+                    IupSetAttribute(row_bg, "BGCOLOR", SUSPICIOUS_BG_COLOR);
                 }
-                IupAppend(sections_list_vbox, row_hbox);
-                IupMap(row_hbox);
+                IupAppend(sections_list_vbox, row_bg);
+                IupMap(row_bg);
             }
         }
 
@@ -443,37 +372,38 @@ void update_gui_with_results(const AnalysisResult* result)
     }
 
     // filling out the "imports" section
-    if (imports_tree && result->dll_count > 0)
+    if (imports_tree)
     {
-        IupSetAttribute(imports_tree, "DELNODE", "CHILDREN");
-        char attr[64];
+        IupSetAttributeId(imports_tree, "DELNODE", 0, "CHILDREN");
 
-        for (int i = 0; i < result->dll_count; ++i)
+        if (result && result->dll_count > 0)
         {
-            const char* dll_name = result->dlls[i].name;
-            if (!dll_name || !dll_name[0]) dll_name = "(unknown DLL)";
+            IupSetAttribute(imports_tree, "REDRAW", "NO");
 
-            IupSetAttribute(imports_tree, "ADDBRANCH-1", dll_name);
-            int dll_id = IupGetInt(imports_tree, "LASTADDNODE_ID");
-
-            for (int j = 0; j < result->dlls[i].function_count; ++j)
+            for (int i = 0; i < result->dll_count; ++i)
             {
-                const char* func_name = result->dlls[i].functions[j].name;
-                if (!func_name || !func_name[0]) func_name = "(unnamed)";
+                const char* dll_name = result->dlls[i].name;
+                if (!dll_name || !dll_name[0]) dll_name = "(unknown DLL)";
 
-                sprintf(attr, "ADDLEAF%d", dll_id);
-                IupSetAttribute(imports_tree, attr, func_name);
+                IupSetAttributeId(imports_tree, "ADDBRANCH", 0, dll_name);
+                int dll_id = IupGetInt(imports_tree, "LASTADDNODE");
+                IupSetAttributeId(imports_tree, "STATE", dll_id, "EXPANDED");
 
-                if (result->dlls[i].functions[j].is_suspicious)
+                for (int j = 0; j < result->dlls[i].function_count; ++j)
                 {
-                    int func_id = IupGetInt(imports_tree, "LASTADDNODE_ID");
-                    sprintf(attr, "FGCOLOR%d", func_id);
-                    IupSetAttribute(imports_tree, attr, "255 100 100");
+                    const char* func_name = result->dlls[i].functions[j].name;
+                    if (!func_name || !func_name[0]) func_name = "(unnamed)";
+
+                    IupSetAttributeId(imports_tree, "ADDLEAF", dll_id, func_name);
+                    int func_id = IupGetInt(imports_tree, "LASTADDNODE");
+
+                    if (result->dlls[i].functions[j].is_suspicious)
+                        IupSetAttributeId(imports_tree, "COLOR", func_id, "255 100 100");
                 }
             }
-        }
 
-        IupRefreshChildren(IupGetDialog(imports_tree));
+            IupSetAttribute(imports_tree, "REDRAW", "YES");
+        }
     }
 
 
