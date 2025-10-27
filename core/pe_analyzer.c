@@ -321,15 +321,10 @@ VOID evaluate_threats(PIMAGE_NT_HEADERS p_nt_header, LPVOID lp_base_address, Ana
             }
         }
     }
-    
-    if (result->dll_count >= 0 && result->dll_count < 2) 
+    // count dlls
+    if (result->dll_count >= 0 && result->dll_count < 3) 
     {
         AddFinding(result, 20, "Anomalously low DLL count: %d (likely packed)", result->dll_count);
-    }
-    
-    if (result->dlls->function_count >= 0 && result->dlls->function_count < 10)
-    {
-        AddFinding(result, 20, "Anomalously low total function import count: %d (likely packed)", result->dlls->function_count);
     }
 
     // string parsing

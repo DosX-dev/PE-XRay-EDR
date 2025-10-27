@@ -21,8 +21,6 @@
 #define SIGNATURE_STATE_ABSENT             3  // no signature
 #define SIGNATURE_STATE_ERROR              4 // another error
 
-#define REG_KEY_NAME "PEAnalyzer"
-
 typedef struct {
     char description[256];
     int score;
@@ -108,10 +106,30 @@ VOID parse_sections_x86(PIMAGE_NT_HEADERS32 p_nt_header, LPVOID lp_base_address,
 BOOL parse_imports_x86(PIMAGE_NT_HEADERS32 p_nt_header, LPVOID lp_base_address, AnalysisResult* result, LONGLONG file_size, const ApiRule* dangerous_functions, size_t num_dangerous_functions);
 
 static const char* suspicious_strings[] = {
-        "cmd.exe", "powershell", "packed", "/c schtasks", "WinDefend", 
-        "ICryptoTransform", "DownloaderApp", "runas", "ShellExecute"
-        
-    };
+    "powershell -enc",
+    "powershell -nop",
+    "powershell -w hidden",
+    "powershell -executionpolicy bypass",
+    "encodedcommand",
+    "cmd.exe /c",
+    "rundll32 ",
+    "regsvr32 /s",
+    "mshta http",
+    "certutil -urlcache",
+    "schtasks /create",
+    "wevtutil cl",
+    "bitsadmin /transfer",
+    "Add-MpPreference -ExclusionPath",
+    "vssadmin delete shadows",
+    "sc stop WinDefend",
+    "MpCmdRun.exe",
+    "URLDownloadToFile",
+    "WinHttpRequest.5.1",
+    "DownloadString(",
+    "FromBase64String(",
+    "Invoke-Expression",
+    "IEX("
+};
 
 static const ApiRule dangerous_api_rules[] = {
     // CRITICAL
@@ -119,18 +137,11 @@ static const ApiRule dangerous_api_rules[] = {
     { "WriteProcessMemory",         30, "CRITICAL" },
     { "SetWindowsHookExA",          30, "CRITICAL" },
     { "SetWindowsHookExW",          30, "CRITICAL" },
-    { "NtCreateThreadEx",           35, "CRITICAL" },
     { "RtlCreateUserThread",        35, "CRITICAL" },
     { "VirtualAllocEx",             30, "CRITICAL" },
-    { "NtMapViewOfSection",         35, "CRITICAL" },
-    { "CreateServiceA",             30, "CRITICAL" },
-    { "CreateServiceW",             30, "CRITICAL" },
     { "QueueUserAPC",               25, "CRITICAL" },
     { "VirtualProtectEx",           25, "CRITICAL" },
     { "SetThreadContext",           30, "CRITICAL" },
-    { "NtLoadDriver",               40, "CRITICAL" },
-    { "ZwLoadDriver",               40, "CRITICAL" },
-    { "DeviceIoControl",            25, "CRITICAL" },
     
     // HIGH
     { "LoadLibraryA",               15, "HIGH" },
@@ -140,21 +151,12 @@ static const ApiRule dangerous_api_rules[] = {
     { "CreateProcessA",             20, "HIGH" },
     { "CreateProcessW",             20, "HIGH" },
     { "system",                     20, "HIGH" },
-    { "HttpSendRequestA",           20, "HIGH" },
-    { "HttpSendRequestW",           20, "HIGH" },
-    { "WinHttpSendRequest",         20, "HIGH" },
     { "CryptEncrypt",               25, "HIGH" },
     { "CryptGenKey",                22, "HIGH" },
     { "CryptImportKey",             22, "HIGH" },
     
     // MEDIUM
     { "GetProcAddress",             3,  "MEDIUM" },
-    { "URLDownloadToFileA",         5,  "MEDIUM" },
-    { "URLDownloadToFileW",         5,  "MEDIUM" },
-    { "InternetOpenA",              5,  "MEDIUM" },
-    { "InternetOpenW",              5,  "MEDIUM" },
-    { "InternetConnectA",           5,  "MEDIUM" },
-    { "InternetConnectW",           5,  "MEDIUM" },
     { "InternetReadFile",           8,  "MEDIUM" },
     { "IsDebuggerPresent",          2,  "MEDIUM" },
     { "CheckRemoteDebuggerPresent", 3,  "MEDIUM" },
@@ -165,40 +167,17 @@ static const ApiRule dangerous_api_rules[] = {
     { "GetAdaptersInfo",            3,  "MEDIUM" },
     { "GetComputerNameA",           2,  "MEDIUM" },
     { "GetComputerNameW",           2,  "MEDIUM" },
-    { "GetUserNameA",               2,  "MEDIUM" },
-    { "GetUserNameW",               2,  "MEDIUM" },
     { "GetAsyncKeyState",           5,  "MEDIUM" },
     { "GetKeyState",                5,  "MEDIUM" },
-    { "FindFirstFileA",             8,  "MEDIUM" },
-    { "FindFirstFileW",             8,  "MEDIUM" },
-    { "FindNextFileA",              8,  "MEDIUM" },
-    { "FindNextFileW",              8,  "MEDIUM" },
-    { "GetTempPathA",               4,  "MEDIUM" },
-    { "GetTempPathW",               4,  "MEDIUM" },
     { "OpenProcess",                10, "MEDIUM" },
     { "OpenThread",                 10, "MEDIUM" },
-    { "OutputDebugStringA",         3,  "MEDIUM" },
-    { "OutputDebugStringW",         3,  "MEDIUM" },
-    { "Process32FirstW",            7, "MEDIUM" },
-    { "Process32NextW",             7, "MEDIUM" },
-    { "EnumProcesses",              7, "MEDIUM" },
     
     // LOW
-    { "GetSystemInfo",              1, "LOW" },
-    { "GetVersionExA",              1, "LOW" },
-    { "GetVersionExW",              1, "LOW" },
     { "Sleep",                      1, "LOW" },
     { "FindResourceA",              2, "LOW" },
     { "FindResourceW",              2, "LOW" },
     { "LoadResource",               2, "LOW" },
     { "SizeofResource",             2, "LOW" },
-    { "GetModuleHandleA",           2, "LOW" },
-    { "GetModuleHandleW",           2, "LOW" },
-    { "GetModuleFileNameA",         2, "LOW" },
-    { "GetModuleFileNameW",         2, "LOW" },
-    { "GetForegroundWindow",        3, "LOW" },
-    { "GetCursorPos",               2, "LOW" },
-    { "GetDC",                      3, "LOW" }
 };
 
 #endif
