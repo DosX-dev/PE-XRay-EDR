@@ -258,8 +258,8 @@ VOID evaluate_threats(PIMAGE_NT_HEADERS p_nt_header, LPVOID lp_base_address, Ana
         }
         
         // flag rule
-        if (strstr(s->flags, "W") && strstr(s->flags, "E")) {
-            AddFinding(result, 40, "[CRITICAL] Dangerous permissions (W+E) on section '%s'", s->name);
+        if (strstr(s->flags, "W") && strstr(s->flags, "X")) {
+            AddFinding(result, 40, "[CRITICAL] Dangerous permissions (W+X) on section '%s'", s->name);
             s->is_suspicious = TRUE;
         }
 
@@ -295,7 +295,7 @@ VOID evaluate_threats(PIMAGE_NT_HEADERS p_nt_header, LPVOID lp_base_address, Ana
     if (!entry_point_found) {
         AddFinding(result, 50, "[CRITICAL] Entry point is outside of any section");
     } else {
-        if (!strstr(entry_point_section->flags, "E")) {
+        if (!strstr(entry_point_section->flags, "X")) {
             AddFinding(result, 40, "[HIGH] Entry point is in a non-executable section ('%s')", entry_point_section->name);
         }
         if (strncmp(entry_point_section->name, ".text", 5) != 0) {
